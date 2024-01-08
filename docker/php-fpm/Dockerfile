@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     pkg-config \
     libssl-dev
 
+RUN docker-php-ext-install mysqli pdo pdo_mysql && docker-php-ext-enable mysqli
+
 # Copy Composer from the official Composer image
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
