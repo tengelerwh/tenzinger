@@ -1,0 +1,101 @@
+version: '3.8'
+
+networks:
+  travel-cost-internal:
+    driver: bridge
+
+volumes:
+  sqlite-data:
+
+services:
+  travel-cost-php-fpm:
+    build:
+      context: docker/php-fpm
+      target: "${APP_ENV}"
+      args:
+        USER_ID: ${USER_ID:-1000}
+        GROUP_ID: ${GROUP_ID:-1000}
+    container_name: "travel-cost-php-fpm"
+    volumes:
+      - './:/app'
+    working_dir: /app
+    environment:
+      PHP_IDE_CONFIG: "serverName=tenzinger-travel-cost"
+    networks:
+      travel-cost-internal: ~
+    depends_on:
+      - travel-cost-sql
+
+  travel-cost-nginx:
+    image: nginx:stable-alpine3.17-slim
+    container_name: "travel-cost-nginx"
+    ports:
+      - '8081:80'
+    volumes:
+      - './docker/nginx/symfony.conf:/etc/nginx/conf.d/php-fpm.conf'
+      - './:/app'
+    depends_on:
+      - travel-cost-php-fpm
+    networks:
+      travel-cost-internal: ~
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.router-travel-cost-nginx.entrypoints=web"
+      - "traefik.http.routers.router-travel-cost-nginx.rule=Host(`travel-cost.localhost`)"
+      - "traefik.http.routers.router-travel-cost-nginx.service=service-travel-cost"
+      - "traefik.http.services.service-travel-cost.loadbalancer.server.port=80"
+
+  travel-cost-sql:
+    image: mysql:latest
+    container_name: "travel-cost-sql"
+    volumes:
+      - sqlite-data:/travel-cost
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    networks:
+      travel-cost-internal: ~
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PW}
+      MYSQL_DATABASE: ${MYSQL_DB}
+
+  travel-cost-adminer:
+    image: adminer
+    container_name: "travel-cost-adminer"
+    restart: always
+    ports:
+      - "8080"
+    networks:
+      travel-cost-internal: ~
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.router-adminer.entrypoints=web"
+      - "traefik.http.routers.router-adminer.rule=Host(`adminer.localhost`)"
+      - "traefik.http.routers.router-adminer.service=service-adminer"
+      - "traefik.http.services.service-adminer.loadbalancer.server.port=8080"
+
+  travel-cost-traefik:
+    image: "traefik:latest"
+    container_name: "travel-cost-traefik"
+    restart: unless-stopped
+    command:
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=travel-cost-internal"
+      - "--providers.file.directory=/config/"
+      - "--providers.file.watch=true"
+      - "--entrypoints.web.address=:80"
+    ports:
+      - "8080:8080"
+      - "80:80"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./config:/config/"
+      - "./tls:/etc/ssl/traefik-tls"
+    networks:
+      travel-cost-internal: ~
+
