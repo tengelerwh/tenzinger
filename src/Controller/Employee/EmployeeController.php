@@ -4,6 +4,7 @@ namespace App\Controller\Employee;
 
 use App\Application\Employee\CompensationDto;
 use App\Application\Employee\EmployeeService;
+use DateTimeImmutable;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
@@ -62,11 +63,15 @@ class EmployeeController extends AbstractController
     #[Route(
         '/api/employees/{employeeId}/calculate/{year}/{month}',
         name: 'employee-compensation-calculation',
-        defaults: ['year' => 2024, 'month' => 1],
+        defaults: ['year' => 2024],
         methods: ['GET']
     )]
-    public function calculateCompensations(string $employeeId, int $year, int $month): Response
+    public function calculateCompensations(string $employeeId, int $year, ?int $month = null): Response
     {
+        if (null === $month) {
+            $now = new DateTimeImmutable();
+            $month = (int) $now->format('m');
+        }
         $nrCalculated = $this->employeeService->calculateCompensations($employeeId, $year, $month);
         return new Response(sprintf('Compensation calculated for %d employees', $nrCalculated));
     }

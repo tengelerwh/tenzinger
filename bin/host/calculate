@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+docker exec -it --user www-data travel-cost-php-fpm ./bin/console employee:calculate $1 $2
