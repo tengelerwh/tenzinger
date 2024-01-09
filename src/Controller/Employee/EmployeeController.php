@@ -2,8 +2,8 @@
 
 namespace App\Controller\Employee;
 
+use App\Application\Employee\CompensationDto;
 use App\Application\Employee\EmployeeService;
-use App\Controller\Employee\EmployeeTravelsQueryDto;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Attribute\MapQueryString;
@@ -23,34 +23,72 @@ class EmployeeController extends AbstractController
         $employees = $this->employeeService->getEmployees();
 
         return $this->render('employees/employee-list.html.twig', [
-            'employees' => $employees
+            'employees' => $employees,
         ]);
     }
 
-    #[Route('/api/employees/{employeeId}/travels/{format}', name: 'employee-travels', methods: ['GET', 'POST', 'PUT'])]
-    public function travels(
-        #[MapQueryString] EmployeeTravelsQueryDto $queryDto
+//'/api/employees/{employeeId}/compensations/{year<d+>}/{month<d+>}/{format}',
+
+    #[Route(
+        '/api/employees/{employeeId}/compensations/{year}/{month}/{format}',
+        name: 'employee-compensation',
+        defaults: ['year' => 2024, 'format' => 'csv'],
+        methods: ['GET']
+    )]
+    public function getCompensations(
+        string $employeeId,
+        ?int $year = 2024,
+        ?int $month = null,
+        ?string $format = 'csv'
     ): Response
     {
-        $travels = $this->employeeService->getTravels($queryDto->employeeId);
+        $compensations =$this->employeeService->getCompensations($employeeId, $year, $month);
 
-        if ('html' === $queryDto->format) {
-            return $this->render('employees/employee-travels.html.twig', [
-                'employeeId' => $queryDto->employeeId,
-                'travels' => $travels,
+        if ('html' === $format) {
+            return $this->render('employees/employee-compensations.html.twig', [
+                'employeeId' => $employeeId,
+                'compensations' => $compensations,
             ]);
         }
 
-        $csvData = $this->renderAsCsv([]);
+        $fileName = sprintf('%d-%d.csv', $year, $month);
+        $csvData = $this->renderAsCsv($compensations);
         $csvResponse = new Response($csvData);
         $csvResponse->headers->set('Content-Type', 'text/csv');
+        $csvResponse->headers->set('Content-disposition', sprintf('attachment;filename=%s', $fileName));
         return $csvResponse;
     }
 
-    private function renderAsCsv(array $data): string
+    #[Route(
+        '/api/employees/{employeeId}/calculate/{year}/{month}',
+        name: 'employee-compensation-calculation',
+        defaults: ['year' => 2024, 'month' => 1],
+        methods: ['GET']
+    )]
+    public function calculateCompensations(string $employeeId, int $year, int $month): Response
     {
-        $result = '100,123,"test"' . PHP_EOL;
-        $result .= '100,123,"test"' . PHP_EOL;
+        $nrCalculated = $this->employeeService->calculateCompensations($employeeId, $year, $month);
+        return new Response(sprintf('Compensation calculated for %d employees', $nrCalculated));
+    }
+
+    private function renderAsCsv(array $compensations): string
+    {
+        $result = '"employeeId", "Name", "Year", "Month", "Transport", "Distance", "Work days", "Amount"' . PHP_EOL;
+        /** @var CompensationDto $compensation */
+        foreach($compensations as $compensation) {
+            $result .= sprintf(
+                '%s, %s, %d, %d, %s, %d, %d, %.2f',
+                    $compensation->employeeId,
+                    $compensation->name,
+                    $compensation->year,
+                    $compensation->month,
+                    $compensation->transport,
+                    $compensation->totalDistance,
+                    $compensation->workDays,
+                    $compensation->amount,
+                ) . PHP_EOL;
+        }
+
         return $result;
     }
 }

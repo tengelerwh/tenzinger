@@ -10,11 +10,16 @@ doctrine:
         naming_strategy: doctrine.orm.naming_strategy.underscore_number_aware
         auto_mapping: true
         mappings:
-            App:
+            Employee:
                 is_bundle: false
-                dir: '%kernel.project_dir%/src/Adapter/MySql/Entity'
-                prefix: 'App\Adapter\MySql\Entity'
-                alias: App
+                dir: '%kernel.project_dir%/src/Adapter/MySql/Employee/Entity'
+                prefix: 'App\Adapter\MySql\Employee\Entity'
+                alias: Employee
+            Transport:
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Adapter/MySql/Transport/Entity'
+                prefix: 'App\Adapter\MySql\Transport\Entity'
+                alias: Employee
 
 when@test:
     doctrine:
